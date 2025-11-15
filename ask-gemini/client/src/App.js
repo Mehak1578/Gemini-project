@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './App.css';
+import API_BASE_URL from './config';
 
 function App() {
   const [question, setQuestion] = useState('');
@@ -44,7 +45,7 @@ function App() {
   // Load current session's history when sessionId changes (including first mount)
   useEffect(() => {
     if (!sessionId) return;
-    fetch(`http://localhost:3000/api/chats/${sessionId}`)
+    fetch(`${API_BASE_URL}/api/chats/${sessionId}`)
       .then(async (r) => {
         if (!r.ok) return;
         const data = await r.json();
@@ -60,7 +61,7 @@ function App() {
 
   const refreshSessions = async () => {
     try {
-  const res = await fetch('http://localhost:3000/api/chats');
+  const res = await fetch(`${API_BASE_URL}/api/chats`);
       if (!res.ok) return;
       const items = await res.json();
       setSessions(items);
@@ -72,7 +73,7 @@ function App() {
     setSessionId(id);
     localStorage.setItem('ask-gemini-sessionId', id);
     try {
-  const res = await fetch(`http://localhost:3000/api/chats/${id}`);
+  const res = await fetch(`${API_BASE_URL}/api/chats/${id}`);
       if (!res.ok) return;
       const data = await res.json();
       const mapped = (data.messages || []).map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.text }));
@@ -99,7 +100,7 @@ function App() {
     // Push user's message into the transcript (UI only)
     setMessages((prev) => [...prev, { role: 'user', content: currentQuestion }]);
     // Persist user message to Mongo (best-effort)
-    fetch(`http://localhost:3000/api/chats/${sessionId}/messages`, {
+    fetch(`${API_BASE_URL}/api/chats/${sessionId}/messages`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: 'user', text: currentQuestion })
     }).then(() => refreshSessions()).catch(()=>{});
@@ -109,7 +110,7 @@ function App() {
     setIsTyping(true);
     try {
       console.log("Sending request to server...");
-      const res = await fetch('http://localhost:3000/api/gemini/', {
+      const res = await fetch(`${API_BASE_URL}/api/gemini/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: currentQuestion })
@@ -133,7 +134,7 @@ function App() {
         // Push assistant response into the transcript (UI only)
         setMessages((prev) => [...prev, { role: 'assistant', content: text }]);
         // Persist bot message to Mongo (best-effort)
-        fetch(`http://localhost:3000/api/chats/${sessionId}/messages`, {
+        fetch(`${API_BASE_URL}/api/chats/${sessionId}/messages`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ role: 'bot', text })
         }).then(() => refreshSessions()).catch(()=>{});
@@ -203,9 +204,9 @@ function App() {
                     onClick={async (e) => {
                       e.stopPropagation();
                       try {
-                        const resp = await fetch(`http://localhost:3000/api/chats/${s.sessionId}`, { method: 'DELETE' });
+                        const resp = await fetch(`${API_BASE_URL}/api/chats/${s.sessionId}`, { method: 'DELETE' });
                         if (!resp.ok) return; // do not mutate UI if deletion failed
-                        const data = await resp.json();
+                        await resp.json(); // consume response but don't need the data
                         // Update sidebar immediately on success
                         setSessions((prev) => prev.filter((x) => x.sessionId !== s.sessionId));
                         // If the deleted chat was active, switch to a new empty chat
